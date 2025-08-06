@@ -167,4 +167,10 @@ public final class SwiftEntryKit {
             }
         }
     }
+    
+    /// This will initialize the internal keyboard observer to guarantee that message respects keyboard
+    /// TODO: Find a better way to no do this
+    public class func bindKeyboardNotifications() {
+        _ = EKKeyboardManager.shared
+    }
 }

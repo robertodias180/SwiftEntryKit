@@ -167,10 +167,20 @@ class EKContentView: UIView {
         // Setup keyboard constraints
         switch attributes.positionConstraints.keyboardRelation {
         case .bind(offset: let offset):
+            fallthrough
+        case .bindAlways(offset: let offset):
             if let screenEdgeResistance = offset.screenEdgeResistance {
                 resistanceConstraint = layoutToSuperview(.top, relation: .greaterThanOrEqual, offset: screenEdgeResistance, priority: .defaultLow)
             }
             inKeyboardConstraint = layoutToSuperview(.bottom, priority: .defaultLow)
+            
+            if EKKeyboardManager.shared.isVisible {
+                inKeyboardConstraint.constant = -(EKKeyboardManager.shared.keyboardHeight + offset.bottom)
+                inKeyboardConstraint.priority = .must
+                resistanceConstraint?.priority = .must
+                inConstraint.priority = .defaultLow
+            }
+            
         default:
             break
         }
@@ -418,7 +428,7 @@ class EKContentView: UIView {
         entranceOutConstraint.priority = .defaultLow
         exitOutConstraint.priority = .defaultLow
         popOutConstraint.priority = .defaultLow
-        inConstraint.priority = .must
+        inConstraint.priority = EKKeyboardManager.shared.isVisible && attributes.positionConstraints.keyboardRelation.isBound ? .defaultLow : .must
         superview?.layoutIfNeeded()
     }
     
@@ -541,8 +551,11 @@ extension EKContentView {
 
     private func animate(by userInfo: [AnyHashable: Any]?, entrance: Bool) {
         
-        // Guard that the entry is bound to the keyboard
-        guard case .bind(offset: let offset) = attributes.positionConstraints.keyboardRelation else {
+        // Guard that the entry is bound to the keyboard and has offset
+        guard
+            attributes.positionConstraints.keyboardRelation.isBound,
+            let offset =  attributes.positionConstraints.keyboardRelation.offset
+        else {
             return
         }
         
@@ -584,10 +597,18 @@ extension EKContentView {
     }
     
     @objc func keyboardWillChangeFrame(_ notification: Notification) {
-        guard containsFirstResponder else {
+        guard shouldAnimateOnKeyboardChanges() else {
             return
         }
         animate(by: notification.userInfo, entrance: true)
+    }
+    
+    private func shouldAnimateOnKeyboardChanges() -> Bool {
+      switch attributes.positionConstraints.keyboardRelation {
+        case .unbind: return false
+        case .bindAlways(offset: _): return true
+        case .bind(offset: _): return containsFirstResponder
+      }
     }
 }
 
